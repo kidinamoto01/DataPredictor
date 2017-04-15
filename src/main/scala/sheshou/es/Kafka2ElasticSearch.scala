@@ -7,6 +7,7 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.streaming.kafka.KafkaUtils
 import org.elasticsearch.spark.sql._
 import org.elasticsearch.spark._
+
 /**
   * Created by suyu on 17-4-14.
   */
@@ -33,7 +34,7 @@ object Kafka2ElasticSearch {
     sparkConf.set("es.index.auto.create", "true")
 
     val  sc = new SparkContext(sparkConf)
-    val ssc = new StreamingContext(sc, Seconds(2))
+    val ssc = new StreamingContext(sc, Seconds(10))
 
     // Create direct kafka stream with brokers and topics
     val topicsSet = topics.split(",").toSet
@@ -50,6 +51,7 @@ object Kafka2ElasticSearch {
       //text.toDF().printSchema()
 
       //save text into elastic search
+
       x.saveToEs("spark/new")
 
     }
