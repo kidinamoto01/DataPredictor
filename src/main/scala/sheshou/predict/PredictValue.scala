@@ -1,8 +1,6 @@
 package sheshou.predict
 
 import java.sql.{DriverManager, ResultSet}
-import java.util.Calendar
-
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SQLContext
 
@@ -16,9 +14,10 @@ object PredictValue {
   //define class
   case class HourPredict(id:Int,busiess_sys:String,time_hour:String,attack_type:String,real_count:Int,predict_count:Int)
 
-  case class HourStatus(id:Int, vulnerability:String)
+  case class MidData(hour:String, vulnerability:Int,predict:Int)
+  case class HourStatus(hour:String, vulnerability:Int)
   //define method
-  def compareInputs(input: Array[HourPredict]): HourPredict = {
+  def compareInputs(input: Array[HourStatus]): MidData = {
     var result:HourPredict =HourPredict(0,"","","",0,0)
 
     //初始化变量
@@ -31,38 +30,28 @@ object PredictValue {
     //increase percentage
     var increase:Double = 0
 
+    var current_time = ""
     //打印变量长度
     println("****"+input.length)
 
     if(input.length >= 2){
       val st = input.takeRight(2)
-      //println(st(0).category+st(1).category+st(2).category)
+
       //有效数据
+      if((st(1).vulnerability!=0)&&(st(1).vulnerability!= 0)){
 
-      if((st(1).real_count!=0)&&(st(1).real_count!= 0)){
-
-        //id
-        id = st(1).id+1
-        //business
-        business = st(1).busiess_sys
-
-        //time_hour
-        hour = st(1).time_hour
-
-        //attack_type
-        attack = st(1).attack_type
-
+        println("st1"+st(1).vulnerability+"st(0)"+st(0).vulnerability)
         //计算增长率
-        increase = (st(1).real_count-st(0).real_count).toDouble/st(0).real_count.toDouble
-
-
+        increase = (st(1).vulnerability-st(0).vulnerability).toDouble/st(0).vulnerability.toDouble
+        current_time = st(1).hour
+        current = st(1).vulnerability
         //预测下一个
-        next = (st(1).real_count.toDouble *(1.0+increase)).toInt
+        next = (st(1).vulnerability.toDouble *(1.0+increase)).toInt
       }
 
     }
 
-    return HourPredict(id,business,hour,attack,current,next)
+    return MidData(current_time, current,next)
 
   }
 
@@ -71,29 +60,45 @@ object PredictValue {
     val filepath = "/Users/b/Documents/andlinks/sheshou/log/0401log3(1).txt"
     val middlewarepath = "hdfs://192.168.1.21:8020/user/root/test/webmiddle/20170413/web.json"
     val hdfspath = "hdfs://192.168.1.21:8020/user/root/test/windowslogin/20170413/windowslogin"
+
     val conf = new SparkConf().setAppName("Offline Doc Application").setMaster("local[*]")
     val sc = new SparkContext(conf)
     val sqlContext = new SQLContext(sc)
     //create hive context
     //val hiveContext = new org.apache.spark.sql.hive.HiveContext(sc)
     Class.forName("org.apache.hive.jdbc.HiveDriver");
-    val conn = DriverManager.getConnection("jdbc:hive2://192.168.1.23:10000/default", "admin", "123456")
+    val conn = DriverManager.getConnection("jdbc:hive2://192.168.1.23:10000/sheshou", "admin", "123456")
 
     //get input table
-    //get input table
     val source: ResultSet = conn.createStatement
-      .executeQuery("SELECT * FROM hourly_stat")
+      .executeQuery("SELECT time_hour,weak_password FROM hourly ")
     //fetch all the data
-    val fetchedSrc = mutable.MutableList[HourPredict]()
-    fetchedSrc += source.last()
+    val fetchedSrc = mutable.MutableList[HourStatus]()
+    while(source.next()) {
+      var rec = HourStatus(
+        source.getString("time_hour"),
+        source.getInt("weak_password")
+      )
+      fetchedSrc += rec
+    }
+
+    val predict = compareInputs(fetchedSrc.toArray)
+
+    println("predict: "+ predict.vulnerability)
     //get the target table
     val res: ResultSet = conn.createStatement
-      .executeQuery("SELECT * FROM prediction_hourly_stat")
+      .executeQuery("SELECT id FROM prediction_hourly_stat")
 
     //fetch all the data
     val fetchedRes = mutable.MutableList[HourPredict]()
 
-    while(res.next()) {
+
+    val insertSQL = "Insert into table sheshou.prediction_hourly_stat values ( "+predict.predict+",\"N/A\","+predict.hour+",\"mal_operation\","+predict.vulnerability+","+predict.predict+")"
+
+   println(insertSQL)
+
+    conn.createStatement.execute(insertSQL)
+    /* while(res.next()) {
       var rec = HourPredict(
         res.getInt("id"),
         res.getString("busiess_sys"),
@@ -103,7 +108,9 @@ object PredictValue {
         res.getInt("predict_count")
       )
       fetchedRes += rec
-    }
+    }*/
+
+
   }
 
 }
