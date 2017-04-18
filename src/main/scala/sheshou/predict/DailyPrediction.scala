@@ -1,16 +1,16 @@
 package sheshou.predict
 
 import java.sql.{DriverManager, ResultSet}
+
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SQLContext
 
 import scala.collection.mutable
 
 /**
-  * Created by suyu on 17-4-14.
+  * Created by suyu on 17-4-18.
   */
-object PredictValue {
-
+object DailyPrediction {
   //define class
   case class HourPredict(id:Int,busiess_sys:String,time_hour:String,attack_type:String,real_count:Int,predict_count:Int)
 
@@ -61,7 +61,7 @@ object PredictValue {
     val middlewarepath = "hdfs://192.168.1.21:8020/user/root/test/webmiddle/20170413/web.json"
     val hdfspath = "hdfs://192.168.1.21:8020/user/root/test/windowslogin/20170413/windowslogin"
 
-    val conf = new SparkConf().setAppName("Offline Doc Application").setMaster("local[*]")
+    val conf = new SparkConf().setAppName("Daily Prediction Application").setMaster("local[*]")
     val sc = new SparkContext(conf)
     val sqlContext = new SQLContext(sc)
     //create hive context
@@ -71,7 +71,7 @@ object PredictValue {
 
     //get input table
     val source: ResultSet = conn.createStatement
-      .executeQuery("SELECT time_hour,mal_operation FROM hourly_stat ")
+      .executeQuery("SELECT time_day,mal_operation FROM dayly_stat ")
     //fetch all the data
     val fetchedSrc = mutable.MutableList[HourStatus]()
     while(source.next()) {
@@ -87,18 +87,17 @@ object PredictValue {
     println("predict: "+ predict.vulnerability)
     //get the target table
     val res: ResultSet = conn.createStatement
-      .executeQuery("SELECT id FROM prediction_hourly_stat")
+      .executeQuery("SELECT id FROM prediction_dayly_stat")
 
     //fetch all the data
     val fetchedRes = mutable.MutableList[HourPredict]()
 
 
-    val insertSQL = "Insert into table sheshou.prediction_hourly_stat values ( "+predict.predict+",\"N/A\","+predict.hour+",\"mal_operation\","+predict.vulnerability+","+predict.predict+")"
+    val insertSQL = "Insert into table sheshou.prediction_dayly_stat values ( "+predict.predict+",\"N/A\","+predict.hour+",\"mal_operation\","+predict.vulnerability+","+predict.predict+")"
 
     println(insertSQL)
 
     conn.createStatement.execute(insertSQL)
 
   }
-
 }
