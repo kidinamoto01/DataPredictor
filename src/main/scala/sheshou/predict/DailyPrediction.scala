@@ -77,7 +77,7 @@ object DailyPrediction {
     while(source.next()) {
       var rec = HourStatus(
         source.getString("time_hour"),
-        source.getInt("weak_password")
+        source.getInt("mal_operation")
       )
       fetchedSrc += rec
     }

@@ -61,7 +61,7 @@ object PredictValue {
     val middlewarepath = "hdfs://192.168.1.21:8020/user/root/test/webmiddle/20170413/web.json"
     val hdfspath = "hdfs://192.168.1.21:8020/user/root/test/windowslogin/20170413/windowslogin"
 
-    val conf = new SparkConf().setAppName("Offline Doc Application").setMaster("local[*]")
+    val conf = new SparkConf().setAppName("Hourly Prediction Application").setMaster("local[*]")
     val sc = new SparkContext(conf)
     val sqlContext = new SQLContext(sc)
     //create hive context
@@ -77,7 +77,7 @@ object PredictValue {
     while(source.next()) {
       var rec = HourStatus(
         source.getString("time_hour"),
-        source.getInt("weak_password")
+        source.getInt("mal_operation")
       )
       fetchedSrc += rec
     }
@@ -97,7 +97,7 @@ object PredictValue {
 
     println(insertSQL)
 
-    conn.createStatement.execute(insertSQL)
+    //conn.createStatement.execute(insertSQL)
 
   }
 

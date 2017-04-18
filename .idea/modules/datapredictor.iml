@@ -65,7 +65,6 @@
     <orderEntry type="library" name="SBT: org.glassfish.hk2:hk2-locator:2.4.0-b34:jar" level="project" />
     <orderEntry type="library" name="SBT: org.glassfish.hk2:hk2-api:2.4.0-b34:jar" level="project" />
     <orderEntry type="library" name="SBT: org.fusesource.leveldbjni:leveldbjni-all:1.8:jar" level="project" />
-    <orderEntry type="library" name="SBT: org.elasticsearch:elasticsearch-spark_2.11:2.3.3:jar" level="project" />
     <orderEntry type="library" name="SBT: org.codehaus.janino:janino:2.7.8:jar" level="project" />
     <orderEntry type="library" name="SBT: org.codehaus.janino:commons-compiler:2.7.8:jar" level="project" />
     <orderEntry type="library" name="SBT: org.codehaus.jackson:jackson-mapper-asl:1.9.13:jar" level="project" />
