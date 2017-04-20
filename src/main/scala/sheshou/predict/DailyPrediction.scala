@@ -50,16 +50,41 @@ object DailyPrediction {
       }
 
     }
+    else{
+
+      val st = input.take(1)
+      current = st(0).vulnerability
+      current_time = st(0).hour
+      next = st(0).vulnerability
+    }
 
     return MidData(current_time, current,next)
 
   }
 
   def main(args: Array[String]) {
-    val logFile = "/usr/local/share/spark-2.1.0-bin-hadoop2.6/README.md" // Should be some file on your system
-    val filepath = "/Users/b/Documents/andlinks/sheshou/log/0401log3(1).txt"
-    val middlewarepath = "hdfs://192.168.1.21:8020/user/root/test/webmiddle/20170413/web.json"
-    val hdfspath = "hdfs://192.168.1.21:8020/user/root/test/windowslogin/20170413/windowslogin"
+
+    if (args.length < 3) {
+      System.err.println(s"""
+                            |Usage: DirectKafkaWordCount <brokers> <topics>
+                            | <hiveurl> is a list of one or more Kafka brokers
+                            |  <databasename> is a list of one or more kafka topics to consume from
+                            |  <tablename1>
+                            |  <col_name>
+                            |  <tablename2>
+        """.stripMargin)
+      System.exit(1)
+    }
+
+
+
+    val Array(hiveurl, databasename,tablename1,col_name,tablename2) = args
+    println(hiveurl)
+    println(databasename)
+    println(tablename1)
+    println(col_name)
+    println(tablename2)
+
 
     val conf = new SparkConf().setAppName("Daily Prediction Application").setMaster("local[*]")
     val sc = new SparkContext(conf)
@@ -67,17 +92,17 @@ object DailyPrediction {
     //create hive context
     //val hiveContext = new org.apache.spark.sql.hive.HiveContext(sc)
     Class.forName("org.apache.hive.jdbc.HiveDriver");
-    val conn = DriverManager.getConnection("jdbc:hive2://192.168.1.23:10000/sheshou", "admin", "123456")
+    val conn = DriverManager.getConnection("jdbc:hive2://"+hiveurl+"/"+databasename)
 
     //get input table
     val source: ResultSet = conn.createStatement
-      .executeQuery("SELECT time_day,mal_operation FROM dayly_stat ")
+      .executeQuery("SELECT time_day,"+col_name+"  FROM "+tablename1)
     //fetch all the data
     val fetchedSrc = mutable.MutableList[HourStatus]()
     while(source.next()) {
       var rec = HourStatus(
-        source.getString("time_hour"),
-        source.getInt("mal_operation")
+        source.getString("time_day"),
+        source.getInt(col_name)
       )
       fetchedSrc += rec
     }
@@ -85,15 +110,8 @@ object DailyPrediction {
     val predict = compareInputs(fetchedSrc.toArray)
 
     println("predict: "+ predict.vulnerability)
-    //get the target table
-    val res: ResultSet = conn.createStatement
-      .executeQuery("SELECT id FROM prediction_dayly_stat")
 
-    //fetch all the data
-    val fetchedRes = mutable.MutableList[HourPredict]()
-
-
-    val insertSQL = "Insert into table sheshou.prediction_dayly_stat values ( "+predict.predict+",\"N/A\","+predict.hour+",\"mal_operation\","+predict.vulnerability+","+predict.predict+")"
+    val insertSQL = "Insert into table "+ databasename+"."+tablename2+" values ( "+predict.predict+",\"0\",\""+predict.hour+"\",\""+col_name+"\","+predict.vulnerability+","+predict.predict+")"
 
     println(insertSQL)
 
