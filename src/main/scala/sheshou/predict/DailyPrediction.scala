@@ -92,7 +92,7 @@ object DailyPrediction {
     //create hive context
     //val hiveContext = new org.apache.spark.sql.hive.HiveContext(sc)
     Class.forName("org.apache.hive.jdbc.HiveDriver");
-    val conn = DriverManager.getConnection("jdbc:hive2://"+hiveurl+"/"+databasename)
+    val conn = DriverManager.getConnection("jdbc:hive2://"+hiveurl+"/"+databasename+"?hive.execution.engine=mr")
 
     //get input table
     val source: ResultSet = conn.createStatement
