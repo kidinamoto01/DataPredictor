@@ -14,5 +14,4 @@ libraryDependencies += "org.apache.spark" % "spark-sql_2.11" % "2.0.0"% "provide
 
 libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.12"
 
-libraryDependencies += "org.apache.hive" % "hive-jdbc" % "2.1.0"
-
+libraryDependencies += "mysql" % "mysql-connector-java" % "5.1.26"

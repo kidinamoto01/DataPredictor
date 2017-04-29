@@ -64,11 +64,12 @@ object PredictValue {
   }
 
   def main(args: Array[String]) {
-    if (args.length < 5) {
+    if (args.length < 6) {
       System.err.println(s"""
                             |Usage: DirectKafkaWordCount <brokers> <topics>
-                            |  <hiveurl> is a list of one or more Kafka brokers
-                            |  <databasename> is a list of one or more kafka topics to consume from
+                            |  <databaseurl> is a list of one or more kafka topics to consume from
+                            |    <username> is a list of one or more kafka topics to consume from
+                            |  <password> is a list of one or more kafka topics to consume from
                             |  <tablename1>
                             |  <col_name>
                             |  <tablename2>
@@ -77,9 +78,11 @@ object PredictValue {
     }
 
 
-    val Array(hiveurl, databasename,tablename1,col_name,tablename2) = args
-    println(hiveurl)
-    println(databasename)
+    val Array(url,username,password,tablename1,col_name,tablename2) = args
+    println(url)
+    println(username)
+    println(password)
+
     println(tablename1)
     println(col_name)
     println(tablename2)
@@ -89,14 +92,15 @@ object PredictValue {
     val sqlContext = new SQLContext(sc)
     //create hive context
     //val hiveContext = new org.apache.spark.sql.hive.HiveContext(sc)
-    Class.forName("org.apache.hive.jdbc.HiveDriver");
-    val conn = DriverManager.getConnection("jdbc:hive2://"+hiveurl+"/"+databasename+"?hive.execution.engine=mr")
+    Class.forName("com.mysql.jdbc.Driver")
+    //val connectionString = "jdbc:mysql://192.168.1.22:3306/log_info?user=root&password=andlinks"
+    val connectionString = "jdbc:mysql://"+url+"?user="+username+"&password="+password
+    val conn = DriverManager.getConnection(connectionString)
 
     //get input table
     val sqlQuery = "SELECT time_hour,"+col_name+" FROM "+tablename1
     println(sqlQuery)
-    val source: ResultSet = conn.createStatement
-      .executeQuery(sqlQuery)
+    val source: ResultSet = conn.createStatement.executeQuery(sqlQuery)
     //fetch all the data
     val fetchedSrc = mutable.MutableList[HourStatus]()
     while(source.next()) {
@@ -111,7 +115,7 @@ object PredictValue {
 
     println("predict: "+ predict.vulnerability)
 
-    val insertSQL = "Insert into table "+databasename+ "."+tablename2+" values( "+predict.predict+",\"0\",\""+predict.hour+"\",\""+col_name+"\","+predict.vulnerability+","+predict.predict+")"
+    val insertSQL = "Insert into "+tablename2+" values( 0,\"0\",\""+predict.hour+"\",\""+col_name+"\","+predict.vulnerability+","+predict.predict+")"
 
     println(insertSQL)
 
