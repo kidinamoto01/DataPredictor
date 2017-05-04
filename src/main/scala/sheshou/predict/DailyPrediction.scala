@@ -6,6 +6,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.SQLContext
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 /**
   * Created by suyu on 17-4-18.
@@ -17,14 +18,11 @@ object DailyPrediction {
   case class MidData(hour:String, vulnerability:Int,predict:Int)
   case class HourStatus(hour:String, vulnerability:Int)
   //define method
-  def compareInputs(input: Array[HourStatus]): MidData = {
-    var result:HourPredict =HourPredict(0,"","","",0,0)
+  def compareInputs(input: Array[HourStatus]): ArrayBuffer[MidData] =  {
+
+    var resultList=  ArrayBuffer[MidData]()
 
     //初始化变量
-    var id = 0
-    var business = ""
-    var hour = ""
-    var attack = ""
     var current = 0
     var next = 0
     //increase percentage
@@ -35,31 +33,47 @@ object DailyPrediction {
     println("****"+input.length)
 
     if(input.length >= 2){
-      val st = input.takeRight(2)
 
-      //有效数据
-      if((st(1).vulnerability!=0)&&(st(1).vulnerability!= 0)){
+      for (i <- 0 until input.length){
+        val firstElt = input(i)
+        if( i+1 < input.length){
+          val secondElt = input(i+1)
+          //有效数据
+          if(firstElt.vulnerability!=0){
+            println("second  "+secondElt.vulnerability+" first  "+firstElt.vulnerability)
+            //计算增长率
+            increase = (secondElt.vulnerability-firstElt.vulnerability).toDouble/firstElt.vulnerability.toDouble
+            current_time = secondElt.hour
+            current = secondElt.vulnerability
+            //预测下一个
+            next = (secondElt.vulnerability.toDouble *(1.0+increase)).toInt
+            println("next "+ next)
+            val newInstance= MidData(current_time, current,next)
+            //insert into array
+            resultList.append(newInstance)
+          }
 
-        println("st1"+st(1).vulnerability+"st(0)"+st(0).vulnerability)
-        //计算增长率
-        increase = (st(1).vulnerability-st(0).vulnerability).toDouble/st(0).vulnerability.toDouble
-        current_time = st(1).hour
-        current = st(1).vulnerability
-        //预测下一个
-        next = (st(1).vulnerability.toDouble *(1.0+increase)).toInt
+        }else{
+          // odd
+          resultList.append( MidData(input(i).hour,input(i).vulnerability,input(i).vulnerability) )
+        }
+
       }
-
     }
     else{
 
+      //when there is only one line, we presume the data will remain the same
       val st = input.take(1)
       current = st(0).vulnerability
       current_time = st(0).hour
       next = st(0).vulnerability
+
+      //add to result list
+      val newInstance= MidData(current_time, current,next)
+      resultList.append(newInstance)
     }
 
-    return MidData(current_time, current,next)
-
+    return resultList
   }
 
   def main(args: Array[String]) {
@@ -67,13 +81,16 @@ object DailyPrediction {
     if (args.length < 6) {
       System.err.println(s"""
                             |Usage: DirectKafkaWordCount <brokers> <topics>
-                            |  <databasename> is a list of one or more kafka topics to consume from
-                            |  <tablename1>
-                            |  <col_name>
-                            |  <tablename2>
+                            |  <databaseurl>  192.168.1.22:3306/log_info
+                            |  <username>  root
+                            |  <password> andlinks
+                            |  <tablename1> hourly_stat
+                            |  <col_name> attack
+                            |  <tablename2> prediction_hourly_stat
         """.stripMargin)
       System.exit(1)
     }
+
 
 
 
@@ -81,7 +98,6 @@ object DailyPrediction {
     println(url)
     println(username)
     println(password)
-
     println(tablename1)
     println(col_name)
     println(tablename2)
@@ -89,14 +105,18 @@ object DailyPrediction {
 
     val conf = new SparkConf().setAppName("Daily Prediction Application").setMaster("local[*]")
     val sc = new SparkContext(conf)
-    val sqlContext = new SQLContext(sc)
-    //create hive context
-    //val hiveContext = new org.apache.spark.sql.hive.HiveContext(sc)
+
     Class.forName("com.mysql.jdbc.Driver")
     //val connectionString = "jdbc:mysql://192.168.1.22:3306/log_info?user=root&password=andlinks"
     val connectionString = "jdbc:mysql://"+url+"?user="+username+"&password="+password
 
     val conn = DriverManager.getConnection(connectionString)
+
+    //truncate prediction table
+    val truncateSQL = "truncate table "+ tablename2
+    println(truncateSQL)
+    conn.createStatement.execute(truncateSQL)
+
     //get input table
     val source: ResultSet = conn.createStatement
       .executeQuery("SELECT time_day,"+col_name+"  FROM "+tablename1)
@@ -110,15 +130,20 @@ object DailyPrediction {
       fetchedSrc += rec
     }
 
-    val predict = compareInputs(fetchedSrc.toArray)
 
-    println("predict: "+ predict.vulnerability)
+    // get prediction results
+    val predictList = compareInputs(fetchedSrc.toArray)
 
-    val insertSQL = "Insert into "+tablename2+" values ( 0,\"0\",\""+predict.hour+"\",\""+col_name+"\","+predict.vulnerability+","+predict.predict+")"
+    println("predict: "+ predictList.length)
+    predictList.foreach{
+      x=>
+        //insert into prediction table
+        val insertSQL = "Insert into "+tablename2+" values( 0,\"0\",\""+x.hour+"\",\""+col_name+"\","+x.vulnerability+","+x.predict+")"
 
-    println(insertSQL)
+        println(insertSQL)
 
-    conn.createStatement.execute(insertSQL)
+        conn.createStatement.execute(insertSQL)
+    }
 
   }
 }

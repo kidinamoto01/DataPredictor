@@ -23,13 +23,8 @@ object HourlyPrediction {
   //define prediction method
   def compareInputs(input: Array[HourStatus]): ArrayBuffer[MidData] = {
     var resultList=  ArrayBuffer[MidData]()
-    var result:MidData =MidData("",0,0)
 
     //初始化变量
-    var id = 0
-    var business = ""
-    var hour = ""
-    var attack = ""
     var current = 0
     var next = 0
     //increase percentage
@@ -74,9 +69,9 @@ object HourlyPrediction {
       current = st(0).vulnerability
       current_time = st(0).hour
       next = st(0).vulnerability
-      //insert prediction value
+
+      //add to result list
       val newInstance= MidData(current_time, current,next)
-      //insert prediction value
       resultList.append(newInstance)
     }
 
@@ -110,11 +105,9 @@ object HourlyPrediction {
 
     val conf = new SparkConf().setAppName("Hourly Prediction Application").setMaster("local[*]")
     val sc = new SparkContext(conf)
-    val sqlContext = new SQLContext(sc)
-    //create hive context
-    //val hiveContext = new org.apache.spark.sql.hive.HiveContext(sc)
+
+    //get mysql connection class
     Class.forName("com.mysql.jdbc.Driver")
-    //val connectionString = "jdbc:mysql://192.168.1.22:3306/log_info?user=root&password=andlinks"
     val connectionString = "jdbc:mysql://"+url+"?user="+username+"&password="+password
     val conn = DriverManager.getConnection(connectionString)
 
@@ -137,12 +130,14 @@ object HourlyPrediction {
       fetchedSrc += rec
     }
 
+
+    // get prediction results
     val predictList = compareInputs(fetchedSrc.toArray)
 
     println("predict: "+ predictList.length)
     predictList.foreach{
       x=>
-      println(x.predict)
+        //insert into prediction table
       val insertSQL = "Insert into "+tablename2+" values( 0,\"0\",\""+x.hour+"\",\""+col_name+"\","+x.vulnerability+","+x.predict+")"
 
       println(insertSQL)
