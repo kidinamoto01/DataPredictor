@@ -8,8 +8,10 @@ import scala.collection.mutable
 
 /**
   * Created by suyu on 17-4-14.
+  * predict value of hourly_stat
+  * insert a new line in prediction hourly stat
   */
-object PredictValue {
+object HourlyPrediction {
 
   //define class
   case class HourPredict(id:Int,busiess_sys:String,time_hour:String,attack_type:String,real_count:Int,predict_count:Int)
