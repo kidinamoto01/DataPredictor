@@ -34,7 +34,7 @@ object DailyPrediction {
 
     if(input.length >= 2){
 
-      for (i <- 0 until input.length){
+      for (i <- 0 until input.length-1){
         val firstElt = input(i)
         if( i+1 < input.length){
           val secondElt = input(i+1)
@@ -53,10 +53,10 @@ object DailyPrediction {
             resultList.append(newInstance)
           }
 
-        }else{
+        }/*else{
           // odd
           resultList.append( MidData(input(i).hour,input(i).vulnerability,input(i).vulnerability) )
-        }
+        }*/
 
       }
     }

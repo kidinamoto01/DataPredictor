@@ -36,9 +36,9 @@ object HourlyPrediction {
 
     if(input.length >= 2){
 
-      for (i <- 0 until input.length){
+      for (i <- 0 until input.length-1){
         val firstElt = input(i)
-        if( i+1 < input.length){
+        if( i< input.length){
           val secondElt = input(i+1)
           //有效数据
           if(firstElt.vulnerability!=0){
@@ -55,10 +55,10 @@ object HourlyPrediction {
             resultList.append(newInstance)
           }
 
-        }else{
+        }/*else{
           // odd
           resultList.append( MidData(input(i).hour,input(i).vulnerability,input(i).vulnerability) )
-        }
+        }*/
 
       }
     }
@@ -142,7 +142,7 @@ object HourlyPrediction {
 
       println(insertSQL)
 
-      conn.createStatement.execute(insertSQL)
+     // conn.createStatement.execute(insertSQL)
     }
 
 
