@@ -142,7 +142,7 @@ object HourlyPrediction {
 
       println(insertSQL)
 
-     // conn.createStatement.execute(insertSQL)
+     conn.createStatement.execute(insertSQL)
     }
 
 
