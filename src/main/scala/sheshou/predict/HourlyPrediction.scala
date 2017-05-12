@@ -132,6 +132,8 @@ object HourlyPrediction {
     conn.close()
   }
 
+
+
   def main(args: Array[String]) {
     if (args.length < 6) {
       System.err.println(s"""

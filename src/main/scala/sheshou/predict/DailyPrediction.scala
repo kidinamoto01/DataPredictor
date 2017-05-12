@@ -78,6 +78,52 @@ object DailyPrediction {
     return resultList
   }
 
+  def MakeDaylyPrediction(hiveContext:HiveContext,col_name:String,url:String,username:String,password:String,tablename2:String): Unit ={
+
+    //get mysql connection class
+    Class.forName("com.mysql.jdbc.Driver")
+    val connectionString = "jdbc:mysql://"+url+"?user="+username+"&password="+password
+    val mysqlurl ="jdbc:mysql://192.168.1.22:3306/log_info?"+"user="+username+"&password="+password//+"&useUnicode=true&amp&characterEncoding=UTF-8"
+
+    println(mysqlurl)
+    val conn = DriverManager.getConnection(mysqlurl)
+
+
+    //get input data from Hive
+    val selectSQL = "select attack_type, count(sum) as acc ,year,month,day from sheshou.attacktypestat where trim(attack_type) = '"+col_name+"'"+
+      " group by year,month, day,attack_type  SORT BY year asc, month asc,day asc"
+    println(selectSQL)
+    //get selected result
+    val selectDF = hiveContext.sql(selectSQL)
+    println("**************"+selectDF.count())
+
+    selectDF.registerTempTable("temp")
+    val transSQL = "select concat(year,'-',month,'-',day,' ', \"00:00:00\") as hour,acc from temp "
+    val transDF = hiveContext.sql(transSQL)
+    transDF.foreach{line=>
+      println(line)
+    }
+    // get prediction results
+    if(transDF.count()>0)
+    {
+      val predictList = compareInputs(transDF.collect())
+
+      println("predict: "+ predictList.length)
+      predictList.foreach{
+        x=>
+          //insert into prediction table
+          val insertSQL = "Insert into "+tablename2+" values( 0,\"0\",\""+x.hour+"\",\""+col_name+"\","+x.vulnerability+","+x.predict+")"
+
+          println(insertSQL)
+
+          conn.createStatement.execute(insertSQL)
+      }
+    }
+
+    conn.close()
+
+  }
+
   def main(args: Array[String]) {
 
     if (args.length < 6) {
@@ -92,9 +138,6 @@ object DailyPrediction {
         """.stripMargin)
       System.exit(1)
     }
-
-
-
 
     val Array(url,username,password,tablename1,col_name,tablename2) = args
     println(url)
@@ -122,84 +165,54 @@ object DailyPrediction {
     val truncateSQL = "truncate table "+ tablename2
     println(truncateSQL)
     conn.createStatement.execute(truncateSQL)
+    //get input table from hive
+    val typeSQL = "select attack_type from sheshou.attacktypestat group by attack_type"
+    println(typeSQL)
+    //get selected result
+    val typeDF = hiveContext.sql(typeSQL)
+    println("**************"+typeDF.count())
+    typeDF.collect().foreach{
+      x=>
+        val colname = x.getString(0)
+        val hc = new  HiveContext(sc)
+        MakeDaylyPrediction(hc,colname,url,username,password,tablename2)
+    }
 
-    //get input table from MySQL
-//    val source: ResultSet = conn.createStatement
-//      .executeQuery("SELECT time_day,"+col_name+"  FROM "+tablename1)
-//    //fetch all the data
-//    while(source.next()) {
-//      var rec = HourStatus(
-//        source.getString("time_day"),
-//        source.getInt(col_name)
-//      )
-//      fetchedSrc += rec
-//    }
 
     //get input data from Hive
-    val selectSQL = "select attack_type, count(sum) as acc ,year,month,day from sheshou.attacktypestat where trim(attack_type) = '"+col_name+"'"+
-      " group by year,month, day,attack_type  SORT BY year asc, month asc,day asc"
-    println(selectSQL)
-//get selected result
-    val selectDF = hiveContext.sql(selectSQL)
-    println("**************"+selectDF.count())
-
-    selectDF.registerTempTable("temp")
-    val transSQL = "select concat(year,'-',month,'-',day,' ', \"00:00:00\") as hour,acc from temp "
-    val transDF = hiveContext.sql(transSQL)
-    transDF.foreach{line=>
-      println(line)
-    }
-//    selectDF.foreach{
-//      line=>
-//      //println("time :"+ line.getString(2)+line.getString(3)+line.getString(4)+line.getString(5))
-//        val hourTime =   line.getString(2)+"-"+line.getString(3)+"-"+line.getString(4)+" "+line.getString(5)+":00:00"
-//        println(hourTime)
-//        println(line.getString(1).toInt)
-//        var rec = HourStatus(
-//        hourTime,
-//        line.getString(1).toInt
-//        )
-//        fetchedSrc += rec
-//        println("&&&&&&&&&&&"+fetchedSrc.size)
-//    }
-
-
-    //    val hiveUrl = "jdbc:hive2://192.168.1.23:10000/sheshou"
-//    val driver = "org.apache.hive.jdbc.HiveDriver"
-//    val userh = "root"
-//    val passwordh = "BBd2017_"
-//    Class.forName(driver)
-//    val hiveConn: Connection = DriverManager.getConnection(hiveUrl, userh, passwordh)
-//    val selectedDF: ResultSet = conn.createStatement.executeQuery("SELECT * FROM attacktypestat ")
-
-//    while(selectedDF.next()) {
-//      var rec = HourStatus(
-//        selectedDF.getString("attack_type"),
-//        selectedDF.getInt(col_name)
-//      )
-//      println("type :"+selectedDF.getString("attack_type")+" count: "+selectedDF.getInt("sum")
-//    )
+//    val selectSQL = "select attack_type, count(sum) as acc ,year,month,day from sheshou.attacktypestat where trim(attack_type) = '"+col_name+"'"+
+//      " group by year,month, day,attack_type  SORT BY year asc, month asc,day asc"
+//    println(selectSQL)
+////get selected result
+//    val selectDF = hiveContext.sql(selectSQL)
+//    println("**************"+selectDF.count())
+//
+//    selectDF.registerTempTable("temp")
+//    val transSQL = "select concat(year,'-',month,'-',day,' ', \"00:00:00\") as hour,acc from temp "
+//    val transDF = hiveContext.sql(transSQL)
+//    transDF.foreach{line=>
+//      println(line)
 //    }
 
     //println("............"+fetchedSrc.toArray.size)
     // get prediction results
-    if(transDF.count()>0)
-    {
-        val predictList = compareInputs(transDF.collect())
-
-        println("predict: "+ predictList.length)
-        predictList.foreach{
-          x=>
-            //insert into prediction table
-            val insertSQL = "Insert into "+tablename2+" values( 0,\"0\",\""+x.hour+"\",\""+col_name+"\","+x.vulnerability+","+x.predict+")"
-
-            println(insertSQL)
-
-            conn.createStatement.execute(insertSQL)
-        }
-    }
-
-    conn.close()
+//    if(transDF.count()>0)
+//    {
+//        val predictList = compareInputs(transDF.collect())
+//
+//        println("predict: "+ predictList.length)
+//        predictList.foreach{
+//          x=>
+//            //insert into prediction table
+//            val insertSQL = "Insert into "+tablename2+" values( 0,\"0\",\""+x.hour+"\",\""+col_name+"\","+x.vulnerability+","+x.predict+")"
+//
+//            println(insertSQL)
+//
+//            conn.createStatement.execute(insertSQL)
+//        }
+//    }
+//
+//    conn.close()
 
   }
 }
