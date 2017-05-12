@@ -109,7 +109,10 @@ object HourlyPrediction {
     //get mysql connection class
     Class.forName("com.mysql.jdbc.Driver")
     val connectionString = "jdbc:mysql://"+url+"?user="+username+"&password="+password
-    val conn = DriverManager.getConnection(connectionString)
+    val mysqlurl ="jdbc:mysql://192.168.1.22:3306/log_info?"+"user="+username+"&password="+password//+"useUnicode=true&amp;characterEncoding=UTF-8"
+
+    println(mysqlurl)
+    val conn = DriverManager.getConnection(mysqlurl)
 
     //truncate prediction table
     val truncateSQL = "truncate table "+ tablename2
@@ -138,15 +141,15 @@ object HourlyPrediction {
     predictList.foreach{
       x=>
         //insert into prediction table
-      val insertSQL = "Insert into "+tablename2+" values( 0,\"0\",\""+x.hour+"\",\""+col_name+"\","+x.vulnerability+","+x.predict+")"
+        val insertSQL = "Insert into "+tablename2+" values( 0,\"0\",\""+x.hour+"\",\""+col_name+"\","+x.vulnerability+","+x.predict+")"
+        println(insertSQL)
+        conn.createStatement.execute(insertSQL)
 
-      println(insertSQL)
 
-     conn.createStatement.execute(insertSQL)
     }
 
 
-
+    conn.close()
   }
 
 }
