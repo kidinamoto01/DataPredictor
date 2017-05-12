@@ -127,7 +127,6 @@ object DailyPrediction {
 //    val source: ResultSet = conn.createStatement
 //      .executeQuery("SELECT time_day,"+col_name+"  FROM "+tablename1)
 //    //fetch all the data
-    val fetchedSrc = mutable.MutableList[HourStatus]()
 //    while(source.next()) {
 //      var rec = HourStatus(
 //        source.getString("time_day"),
