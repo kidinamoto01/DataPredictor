@@ -3,7 +3,8 @@ package sheshou.predict
 import java.sql.{DriverManager, ResultSet}
 
 import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.{Row, SQLContext}
+import org.apache.spark.sql.hive.HiveContext
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -21,7 +22,7 @@ object HourlyPrediction {
   case class MidData(hour:String, vulnerability:Int,predict:Int)
   case class HourStatus(hour:String, vulnerability:Int)
   //define prediction method
-  def compareInputs(input: Array[HourStatus]): ArrayBuffer[MidData] = {
+  def compareInputs(input: Array[Row]): ArrayBuffer[MidData] = {
     var resultList=  ArrayBuffer[MidData]()
 
     //初始化变量
@@ -41,14 +42,14 @@ object HourlyPrediction {
         if( i< input.length){
           val secondElt = input(i+1)
           //有效数据
-          if(firstElt.vulnerability!=0){
-            println("second  "+secondElt.vulnerability+" first  "+firstElt.vulnerability)
+          if(firstElt.getString(1).toInt!=0){
+            println("second  "+secondElt.getString(1).toInt+" first  "+firstElt.getString(1).toInt)
             //计算增长率
-            increase = (secondElt.vulnerability-firstElt.vulnerability).toDouble/firstElt.vulnerability.toDouble
-            current_time = secondElt.hour
-            current = secondElt.vulnerability
+            increase = (secondElt.getString(1).toInt-firstElt.getString(1).toInt).toDouble/firstElt.getString(1).toDouble
+            current_time = secondElt.getString(0)
+            current = secondElt.getString(1).toInt
             //预测下一个
-            next = (secondElt.vulnerability.toDouble *(1.0+increase)).toInt
+            next = (secondElt.getString(1).toDouble *(1.0+increase)).toInt
             println("next "+ next)
             val newInstance= MidData(current_time, current,next)
             //insert into array
@@ -66,9 +67,9 @@ object HourlyPrediction {
 
       //when there is only one line, we presume the data will remain the same
       val st = input.take(1)
-      current = st(0).vulnerability
-      current_time = st(0).hour
-      next = st(0).vulnerability
+      current = st(0).getString(1).toInt
+      current_time = st(0).getString(0)
+      next = st(0).getString(1).toInt
 
       //add to result list
       val newInstance= MidData(current_time, current,next)
@@ -104,8 +105,9 @@ object HourlyPrediction {
     println(tablename2)
 
     val conf = new SparkConf().setAppName("Hourly Prediction Application").setMaster("local[*]")
+    conf.set("hive.metastore.uris", "thrift://192.168.1.23:9083")
     val sc = new SparkContext(conf)
-
+    val hiveContext = new  HiveContext(sc)
     //get mysql connection class
     Class.forName("com.mysql.jdbc.Driver")
     val connectionString = "jdbc:mysql://"+url+"?user="+username+"&password="+password
@@ -119,34 +121,40 @@ object HourlyPrediction {
     println(truncateSQL)
     conn.createStatement.execute(truncateSQL)
 
-    //get input table
-    val sqlQuery = "SELECT time_hour,"+col_name+" FROM "+tablename1
-    println(sqlQuery)
-    val source: ResultSet = conn.createStatement.executeQuery(sqlQuery)
-    //fetch all the data
-    val fetchedSrc = mutable.MutableList[HourStatus]()
-    while(source.next()) {
-      var rec = HourStatus(
-        source.getString("time_hour"),
-        source.getInt(col_name)
-      )
-      fetchedSrc += rec
+    //get input table from hive
+    val selectSQL = "select attack_type, sum ,year,month,day,hour from sheshou.attacktypestat where trim(attack_type) = '"+col_name+"'"+
+      " SORT BY year asc, month asc,day asc"
+    println(selectSQL)
+    //get selected result
+    val selectDF = hiveContext.sql(selectSQL)
+    println("**************"+selectDF.count())
+
+    selectDF.registerTempTable("temp")
+    val transSQL = "select concat(year,'-',month,'-',day,' ',hour, \":00:00\") as hour,sum from temp "
+    val transDF = hiveContext.sql(transSQL)
+    transDF.foreach{line=>
+      println(line)
     }
 
 
     // get prediction results
-    val predictList = compareInputs(fetchedSrc.toArray)
+    if(transDF.count()>0)
+    {
+      val predictList = compareInputs(transDF.collect())
 
-    println("predict: "+ predictList.length)
-    predictList.foreach{
-      x=>
-        //insert into prediction table
-        val insertSQL = "Insert into "+tablename2+" values( 0,\"0\",\""+x.hour+"\",\""+col_name+"\","+x.vulnerability+","+x.predict+")"
-        println(insertSQL)
-        conn.createStatement.execute(insertSQL)
+      println("predict: "+ predictList.length)
+      predictList.foreach{
+        x=>
+          //insert into prediction table
+          val insertSQL = "Insert into "+tablename2+" values(0, \"0\",\""+x.hour+"\",\""+col_name+"\","+x.vulnerability+","+x.predict+")"
 
+          println(insertSQL)
 
+          conn.createStatement.execute(insertSQL)
+      }
     }
+
+    conn.close()
 
 
     conn.close()

@@ -41,14 +41,14 @@ object DailyPrediction {
         if( i+1 < input.length){
           val secondElt = input(i+1)
           //有效数据
-          if(firstElt.getString(1).toInt!=0){
-            println("second  "+secondElt.getString(1).toInt+" first  "+firstElt.getString(1).toInt)
+          if(firstElt.getLong(1).toInt!=0){
+            println("second  "+secondElt.getLong(1).toInt+" first  "+firstElt.getLong(1).toInt)
             //计算增长率
-            increase = (secondElt.getString(1).toInt-firstElt.getString(1).toInt).toDouble/firstElt.getString(1).toDouble
+            increase = (secondElt.getLong(1).toInt-firstElt.getLong(1).toInt).toDouble/firstElt.getLong(1).toDouble
             current_time = secondElt.getString(0)
-            current = secondElt.getString(1).toInt
+            current = secondElt.getLong(1).toInt
             //预测下一个
-            next = (secondElt.getString(1).toDouble *(1.0+increase)).toInt
+            next = (secondElt.getLong(1).toDouble *(1.0+increase)).toInt
             println("next "+ next)
             val newInstance= MidData(current_time, current,next)
             //insert into array
@@ -66,9 +66,9 @@ object DailyPrediction {
 
       //when there is only one line, we presume the data will remain the same
       val st = input.take(1)
-      current = st(0).getString(1).toInt
+      current = st(0).getLong(1).toInt
       current_time = st(0).getString(0)
-      next = st(0).getString(1).toInt
+      next = st(0).getLong(1).toInt
 
       //add to result list
       val newInstance= MidData(current_time, current,next)
@@ -137,15 +137,15 @@ object DailyPrediction {
 //    }
 
     //get input data from Hive
-    val selectSQL = "select * from sheshou.attacktypestat where trim(attack_type) = '"+col_name+"'"+
-      "  SORT BY year asc, month asc,day asc,hour asc"
+    val selectSQL = "select attack_type, count(sum) as acc ,year,month,day from sheshou.attacktypestat where trim(attack_type) = '"+col_name+"'"+
+      " group by year,month, day,attack_type  SORT BY year asc, month asc,day asc"
     println(selectSQL)
-    val selectDF = hiveContext.sql("select * from sheshou.attacktypestat where trim(attack_type) = '"+col_name+"'"+
-    "  SORT BY year asc, month asc,day asc,hour asc")
+//get selected result
+    val selectDF = hiveContext.sql(selectSQL)
     println("**************"+selectDF.count())
 
     selectDF.registerTempTable("temp")
-    val transSQL = "select concat(year,'-',month,'-',day,' ',hour, \":00:00\") as hour,sum from temp "
+    val transSQL = "select concat(year,'-',month,'-',day,' ', \"00:00:00\") as hour,acc from temp "
     val transDF = hiveContext.sql(transSQL)
     transDF.foreach{line=>
       println(line)
