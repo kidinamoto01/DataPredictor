@@ -40,6 +40,26 @@ object WeeklyPrediction {
         //reset the change percentages
         percent = 0.0
       }
+      //calculate prediction for the first three inputs
+      for (j <- 1 until 3) {
+        for (i <- 0 until j) {
+          percent += inputs(j - i).getDouble(2)/ inputs(j - i -1).getDouble(2)
+
+          println("j ="+j+"  get input :"+i+"input "+inputs(j - i).getDouble(2)+" "+inputs(j - i-1).getDouble(2))
+
+        }
+
+        println("  get percentage : "+percent)
+        result = (inputs(j).getDouble(2)* percent / j).toInt
+
+        val newInstance = WeekPredict(inputs(j).getInt(1).toString, inputs(j).getString(0),inputs(j).getDouble(2).toInt, result,inputs(j).getString(3))
+        //insert into array
+        resultList.append(newInstance)
+        //reset the change percentages
+        percent = 0.0
+
+
+      }
     }
     return resultList
   }
