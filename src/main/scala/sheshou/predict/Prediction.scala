@@ -17,10 +17,11 @@ object Prediction {
     //init
     var result = 0
     var resultList=  ArrayBuffer[MidData]()
-    var percent:Double = 0.0
+
 
     //we need 4 records to make a prediction
     if(inputs.length >= 4) {
+      var percent:Double = 0.0
       for (j <- 3 until inputs.length ) {
         for (i <- 0 until 3) {
           percent += inputs(j - i).getLong(1).toDouble / inputs(j - i -1).getLong(1).toInt.toDouble
@@ -35,7 +36,10 @@ object Prediction {
         val newInstance = MidData(inputs(j).getString(2), inputs(j).getLong(1).toInt, result)
         //insert into array
         resultList.append(newInstance)
+        //reset the change percentages
+        percent = 0.0
       }
+
     }
     return resultList
   }

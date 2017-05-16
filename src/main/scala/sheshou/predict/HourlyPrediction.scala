@@ -21,72 +21,42 @@ object HourlyPrediction {
 
   case class MidData(hour:String, vulnerability:Int,predict:Int)
   case class HourStatus(hour:String, vulnerability:Int)
-  //define prediction method
-  def compareInputs(input: Array[Row]): ArrayBuffer[MidData] = {
+
+  def PredictValue(inputs: Array[Row]): ArrayBuffer[MidData]  ={
+    //init
+    var result = 0
     var resultList=  ArrayBuffer[MidData]()
+    var percent:Double = 0.0
 
-    //初始化变量
-    var current = 0
-    var next = 0
-    //increase percentage
-    var increase:Double = 0
+    //we need 4 records to make a prediction
+    if(inputs.length >= 4) {
+      for (j <- 3 until inputs.length ) {
+        for (i <- 0 until 3) {
+          percent += inputs(j - i).getLong(1).toDouble / inputs(j - i -1).getLong(1).toInt.toDouble
 
-    var current_time = ""
-    //打印变量长度
-    println("****"+input.length)
+          println("j ="+j+"  get input :"+i+"input "+inputs(j - i).getLong(1).toInt+" "+inputs(j - i-1).getLong(1).toInt )
 
-    if(input.length >= 2){
+        }
 
-      for (i <- 0 until input.length-1){
-        val firstElt = input(i)
-        if( i< input.length){
-          val secondElt = input(i+1)
-          //有效数据
-          if(firstElt.getString(1).toInt!=0){
-            println("second  "+secondElt.getString(1).toInt+" first  "+firstElt.getString(1).toInt)
-            //计算增长率
-            increase = (secondElt.getString(1).toInt-firstElt.getString(1).toInt).toDouble/firstElt.getString(1).toDouble
-            current_time = secondElt.getString(0)
-            current = secondElt.getString(1).toInt
-            //预测下一个
-            next = (secondElt.getString(1).toDouble *(1.0+increase)).toInt
-            println("next "+ next)
-            val newInstance= MidData(current_time, current,next)
-            //insert into array
-            resultList.append(newInstance)
-          }
+        println("  get percentage : "+percent)
+        result = (inputs(j).getLong(1).toInt * percent / 3.0).toInt
 
-        }/*else{
-          // odd
-          resultList.append( MidData(input(i).hour,input(i).vulnerability,input(i).vulnerability) )
-        }*/
-
+        val newInstance = MidData(inputs(j).getString(6), inputs(j).getLong(1).toInt, result)
+        //insert into array
+        resultList.append(newInstance)
+        //reset the change percentages
+        percent = 0.0
       }
     }
-    else{
-
-      //when there is only one line, we presume the data will remain the same
-      val st = input.take(1)
-      current = st(0).getString(1).toInt
-      current_time = st(0).getString(0)
-      next = st(0).getString(1).toInt
-
-      //add to result list
-      val newInstance= MidData(current_time, current,next)
-      resultList.append(newInstance)
-    }
-
     return resultList
-
   }
-
   def MakeHourlyPrediction(hiveContext:HiveContext,col_name:String,url:String,username:String,password:String,tablename2:String): Unit ={
 
 
     //get mysql connection class
     Class.forName("com.mysql.jdbc.Driver")
-    val connectionString = "jdbc:mysql://"+url+"?user="+username+"&password="+password
-    val mysqlurl ="jdbc:mysql://192.168.1.22:3306/log_info?"+"user="+username+"&password="+password//+"&useUnicode=true&amp&characterEncoding=UTF-8"
+    val mysqlurl = "jdbc:mysql://"+url+"?user="+username+"&password="+password
+    //val mysqlurl ="jdbc:mysql://192.168.1.22:3306/log_info?"+"user="+username+"&password="+password//+"&useUnicode=true&amp&characterEncoding=UTF-8"
 
     println(mysqlurl)
     val conn = DriverManager.getConnection(mysqlurl)
@@ -97,25 +67,23 @@ object HourlyPrediction {
     conn.createStatement.execute(truncateSQL)
 
     //get input table from hive
-    val selectSQL = "select attack_type, sum ,year,month,day,hour from sheshou.attacktypestat where trim(attack_type) = '"+col_name+"'"+
-      " SORT BY year asc, month asc,day asc"
+    val selectSQL = "select attack_type, count(sum) as acc,year,month,day,hour ,concat(year,'-',month,'-',day,' ',hour, \":00:00\") as hour_time from sheshou.attacktypestat where trim(attack_type) = '"+col_name+"'"+"group by year,month, day,hour,attack_type "
     println(selectSQL)
     //get selected result
-    val selectDF = hiveContext.sql(selectSQL)
+    val selectDF = hiveContext.sql(selectSQL).coalesce(1).orderBy("year","month","day","hour")
     println("**************"+selectDF.count())
 
     selectDF.registerTempTable("temp")
-    val transSQL = "select concat(year,'-',month,'-',day,' ',hour, \":00:00\") as hour,sum from temp "
-    val transDF = hiveContext.sql(transSQL)
-    transDF.foreach{line=>
+
+    selectDF.foreach{line=>
       println(line)
     }
 
 
     // get prediction results
-    if(transDF.count()>0)
+    if(selectDF.count()>0)
     {
-      val predictList = compareInputs(transDF.collect())
+      val predictList = PredictValue(selectDF.collect())
 
       println("predict: "+ predictList.length)
       predictList.foreach{
@@ -125,7 +93,7 @@ object HourlyPrediction {
 
           println(insertSQL)
 
-          conn.createStatement.execute(insertSQL)
+         conn.createStatement.execute(insertSQL)
       }
     }
 
@@ -163,8 +131,8 @@ object HourlyPrediction {
     val hiveContext = new  HiveContext(sc)
     //get mysql connection class
     Class.forName("com.mysql.jdbc.Driver")
-    val connectionString = "jdbc:mysql://"+url+"?user="+username+"&password="+password
-    val mysqlurl ="jdbc:mysql://192.168.1.22:3306/log_info?"+"user="+username+"&password="+password//+"useUnicode=true&amp;characterEncoding=UTF-8"
+    val mysqlurl = "jdbc:mysql://"+url+"?user="+username+"&password="+password
+    //val mysqlurl ="jdbc:mysql://192.168.1.22:3306/log_info?"+"user="+username+"&password="+password//+"useUnicode=true&amp;characterEncoding=UTF-8"
 
     println(mysqlurl)
     val conn = DriverManager.getConnection(mysqlurl)
