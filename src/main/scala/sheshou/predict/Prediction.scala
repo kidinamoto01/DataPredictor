@@ -24,16 +24,16 @@ object Prediction {
       var percent:Double = 0.0
       for (j <- 3 until inputs.length ) {
         for (i <- 0 until 3) {
-          percent += inputs(j - i).getLong(1).toDouble / inputs(j - i -1).getLong(1).toInt.toDouble
+          percent += inputs(j - i).getDouble(1)/ inputs(j - i -1).getDouble(1)
 
-          println("j ="+j+"  get input :"+i+"input "+inputs(j - i).getLong(1).toInt+" "+inputs(j - i-1).getLong(1).toInt )
+          println("j ="+j+"  get input :"+i+"input "+inputs(j - i).getDouble(1)+" "+inputs(j - i-1).getDouble(1))
 
         }
 
         println("  get percentage : "+percent)
-        result = (inputs(j).getLong(1).toInt * percent / 3.0).toInt
+        result = (inputs(j).getDouble(1) * percent / 3.0).toInt
 
-        val newInstance = MidData(inputs(j).getString(2), inputs(j).getLong(1).toInt, result)
+        val newInstance = MidData(inputs(j).getString(2), inputs(j).getDouble(1).toInt, result)
         //insert into array
         resultList.append(newInstance)
         //reset the change percentages
@@ -116,7 +116,7 @@ object Prediction {
     //get input data from Hive
 //    val selectSQL = "select attack_type, count(sum) as acc ,year,month,day from sheshou.attacktypestat where trim(attack_type) = '"+col_name+"'"+
 //      " group by year,month, day,attack_type  SORT BY year asc, month asc,day asc"
-    val selectSQL = " select attack_type, count(sum) as acc ,concat(year, '-',month, '-',day,' ', \"00:00:00\" ) as hourly_time, year,month, day from sheshou.attacktypestat where trim(attack_type) = '"+col_name+"'"+
+    val selectSQL = " select attack_type, sum(sum) as acc ,concat(year, '-',month, '-',day,' ', \"00:00:00\" ) as hourly_time, year,month, day from sheshou.attacktypestat where trim(attack_type) = '"+col_name+"'"+
       " group by year,month, day,attack_type  "
     println(selectSQL)
     //get selected result

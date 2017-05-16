@@ -2,11 +2,12 @@ package sheshou.predict
 
 import java.sql.DriverManager
 
-import org.apache.spark.sql.Row
 import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.hive.HiveContext
 
 import scala.collection.mutable.ArrayBuffer
+;
 
 /**
   * Created by suyu on 17-5-16.
