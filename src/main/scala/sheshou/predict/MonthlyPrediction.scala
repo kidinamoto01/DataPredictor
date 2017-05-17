@@ -78,10 +78,6 @@ object MonthlyPrediction {
     println(mysqlurl)
     val conn = DriverManager.getConnection(mysqlurl)
 
-    //truncate prediction table
-    val truncateSQL = "truncate table "+ tablename2
-    println(truncateSQL)
-    conn.createStatement.execute(truncateSQL)
 
     //get input table from hive
     val selectSQL = "select attack_type, year,sum(sum) as acc,month ,concat(year,month) as month_time from sheshou.attacktypestat where trim(attack_type) = '"+col_name+"'"+"group by year,month,attack_type "

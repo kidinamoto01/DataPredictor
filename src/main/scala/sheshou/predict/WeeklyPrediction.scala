@@ -75,12 +75,7 @@ object WeeklyPrediction {
 
     println(mysqlurl)
     val conn = DriverManager.getConnection(mysqlurl)
-
-    //truncate prediction table
-    val truncateSQL = "truncate table "+ tablename2
-    println(truncateSQL)
-    conn.createStatement.execute(truncateSQL)
-
+    
     //get input table from hive
     val selectSQL = "select t.attack_type,t.week_time, sum(t.acc) ,t.year from (select attack_type, sum as acc ,year,weekofyear(concat(year, '-',month, '-',day,' ',hour, \":00:00\" )) as week_time from sheshou.attacktypestat)t  where trim(t.attack_type) = \'"+col_name+"\' group by t.year,t.week_time,t.attack_type "
     println(selectSQL)

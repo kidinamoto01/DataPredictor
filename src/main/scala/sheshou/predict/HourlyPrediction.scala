@@ -61,11 +61,6 @@ object HourlyPrediction {
     println(mysqlurl)
     val conn = DriverManager.getConnection(mysqlurl)
 
-    //truncate prediction table
-    val truncateSQL = "truncate table "+ tablename2
-    println(truncateSQL)
-    conn.createStatement.execute(truncateSQL)
-
     //get input table from hive
     val selectSQL = "select attack_type, count(sum) as acc,year,month,day,hour ,concat(year,'-',month,'-',day,' ',hour, \":00:00\") as hour_time from sheshou.attacktypestat where trim(attack_type) = '"+col_name+"'"+"group by year,month, day,hour,attack_type "
     println(selectSQL)
