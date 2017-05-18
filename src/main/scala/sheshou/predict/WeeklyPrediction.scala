@@ -2,9 +2,11 @@ package sheshou.predict
 
 import java.sql.DriverManager
 
+import org.apache.commons.lang.StringUtils
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.hive.HiveContext
+import org.joda.time.DateTime
 
 import scala.collection.mutable.ArrayBuffer
 ;
@@ -15,6 +17,20 @@ import scala.collection.mutable.ArrayBuffer
 object WeeklyPrediction {
 
   case class WeekPredict(time_week:String,attack_type:String,real_count:Int,predict_count:Int,year:String)
+  def GetNextWeek(inputYear:String,inputMonth:String,inputDay:String): String ={
+
+    val strDate = inputYear+"-"+inputMonth+"-"+inputDay+"00:00:00"
+
+    val strMon= StringUtils.stripStart(inputMonth, "0")
+    println("left pad :"+strMon.toInt)
+    val date =  (new DateTime).withYear(inputYear.toInt)
+      .withMonthOfYear(strMon.toInt)
+      .withDayOfMonth(inputDay.toInt).withHourOfDay(0).withMinuteOfHour(0).withSecondOfMinute(0)
+
+    val result = date.plusWeeks(1).toString("yyyy-MM-dd")
+    println(result)
+    return result
+  }
 
   def PredictValue(inputs: Array[Row]): ArrayBuffer[WeekPredict]  ={
     //init
@@ -25,7 +41,7 @@ object WeeklyPrediction {
     //we need 4 records to make a prediction
     if(inputs.length >= 4) {
       for (j <- 3 until inputs.length ) {
-        for (i <- 0 until 3) {
+        for (i <- 1 until 3) {
           percent += inputs(j - i).getDouble(2)/ inputs(j - i -1).getDouble(2)
 
           println("j ="+j+"  get input :"+i+"input "+inputs(j - i).getDouble(2)+" "+inputs(j - i-1).getDouble(2))
@@ -33,34 +49,69 @@ object WeeklyPrediction {
         }
 
         println("  get percentage : "+percent)
-        result = (inputs(j).getDouble(2)* percent / 3.0).toInt
+        result = (inputs(j-1).getDouble(2)* percent / 2.0).toInt
 
-        val newInstance = WeekPredict(inputs(j).getInt(1).toString, inputs(j).getString(0),inputs(j).getDouble(2).toInt, result,inputs(j).getString(3))
+        val newWeek:String = ((inputs(j).getInt(1)+1)%52).toString
+        val newInstance = WeekPredict(newWeek, inputs(j).getString(0),0, result,inputs(j).getString(3))
         //insert into array
         resultList.append(newInstance)
         //reset the change percentages
         percent = 0.0
       }
+
       //calculate prediction for the first three inputs
-      for (j <- 1 until 3) {
-        for (i <- 0 until j) {
-          percent += inputs(j - i).getDouble(2)/ inputs(j - i -1).getDouble(2)
+      //first row
+      val firstInstance =  WeekPredict(inputs(0).getInt(1).toString, inputs(0).getString(0),0, 0,inputs(0).getString(3))
+      //second row
+      val secondInstance =   WeekPredict(inputs(1).getInt(1).toString, inputs(1).getString(0),0, 0,inputs(0).getString(3))
+      //third row
+      val thirdInstance =   WeekPredict(inputs(2).getInt(1).toString, inputs(2).getString(0),0, inputs(0).getDouble(2).toInt,inputs(0).getString(3))
+      val thirdprediction =  (inputs(1).getDouble(2))*(inputs(1).getDouble(2))/ (inputs(0).getDouble(2))
+      //forth row
+      val forthInstance =   WeekPredict(inputs(3).getInt(1).toString, inputs(2).getString(0),0, thirdprediction.toInt,inputs(0).getString(3))
 
-          println("j ="+j+"  get input :"+i+"input "+inputs(j - i).getDouble(2)+" "+inputs(j - i-1).getDouble(2))
+      //insert into array
+      resultList.append(firstInstance)
+      resultList.append(secondInstance)
+      resultList.append(thirdInstance)
+      resultList.append(forthInstance)
 
-        }
+    }
 
-        println("  get percentage : "+percent)
-        result = (inputs(j).getDouble(2)* percent / j).toInt
+    if(inputs.length == 3) {
+      //first row
+      val firstInstance =  WeekPredict(inputs(0).getInt(1).toString, inputs(0).getString(0),0, 0,inputs(0).getString(3))
+      //second row
+      val secondInstance =   WeekPredict(inputs(1).getInt(1).toString, inputs(1).getString(0),0, 0,inputs(0).getString(3))
+      //third row
 
-        val newInstance = WeekPredict(inputs(j).getInt(1).toString, inputs(j).getString(0),inputs(j).getDouble(2).toInt, result,inputs(j).getString(3))
-        //insert into array
-        resultList.append(newInstance)
-        //reset the change percentages
-        percent = 0.0
+      val thirdInstance =   WeekPredict(inputs(2).getInt(1).toString, inputs(2).getString(0),0, inputs(0).getDouble(2).toInt,inputs(0).getString(3))
 
+      //insert into array
+      resultList.append(firstInstance)
+      resultList.append(secondInstance)
+      resultList.append(thirdInstance)
 
-      }
+    }
+    if(inputs.length == 2) {
+      //first row
+      val firstInstance =  WeekPredict(inputs(0).getInt(1).toString, inputs(0).getString(0),0, 0,inputs(0).getString(3))
+      //second row
+      val secondInstance =   WeekPredict(inputs(1).getInt(1).toString, inputs(1).getString(0),0, 0,inputs(0).getString(3))
+
+      //insert into array
+      resultList.append(firstInstance)
+      resultList.append(secondInstance)
+
+    }
+    if(inputs.length == 1) {
+
+      //first row
+      val firstInstance =  WeekPredict(inputs(0).getInt(1).toString, inputs(0).getString(0),0, 0,inputs(0).getString(3))
+
+      //insert into array
+      resultList.append(firstInstance)
+
     }
     return resultList
   }
@@ -74,8 +125,9 @@ object WeeklyPrediction {
     //val mysqlurl ="jdbc:mysql://192.168.1.22:3306/log_info?"+"user="+username+"&password="+password//+"&useUnicode=true&amp&characterEncoding=UTF-8"
 
     println(mysqlurl)
-    val conn = DriverManager.getConnection(mysqlurl)
-    
+   // val conn = DriverManager.getConnection(mysqlurl)
+   val conn =  DriverManager.getConnection("jdbc:mysql://" + url + "?useUnicode=true&characterEncoding=UTF-8",username,password);
+
     //get input table from hive
     val selectSQL = "select t.attack_type,t.week_time, sum(t.acc) ,t.year from (select attack_type, sum as acc ,year,weekofyear(concat(year, '-',month, '-',day,' ',hour, \":00:00\" )) as week_time from sheshou.attacktypestat)t  where trim(t.attack_type) = \'"+col_name+"\' group by t.year,t.week_time,t.attack_type "
     println(selectSQL)
@@ -111,6 +163,41 @@ object WeeklyPrediction {
   }
 
 
+  def UpdateWeeklyStat(hiveContext:HiveContext,col_name:String,url:String,username:String,password:String,tablename2:String): Unit ={
+
+
+    //get mysql connection class
+    Class.forName("com.mysql.jdbc.Driver")
+    val mysqlurl = "jdbc:mysql://"+url+"?user="+username+"&password="+password+"&useUnicode=true&characterEncoding=UTF-8"
+    //val mysqlurl ="jdbc:mysql://192.168.1.22:3306/log_info?"+"user="+username+"&password="+password//
+    println(mysqlurl)
+   // val conn = DriverManager.getConnection(mysqlurl)
+    val conn =  DriverManager.getConnection("jdbc:mysql://" + url + "?useUnicode=true&characterEncoding=UTF-8",username,password);
+
+    //get input table from hive
+    val selectSQL = "select t.attack_type,t.week_time, sum(t.acc) ,t.year from (select attack_type, sum as acc ,year,weekofyear(concat(year, '-',month, '-',day,' ',hour, \":00:00\" )) as week_time from sheshou.attacktypestat)t  where trim(t.attack_type) = \'"+col_name+"\' group by t.year,t.week_time,t.attack_type "
+    println(selectSQL)
+    //get selected result
+    val selectDF = hiveContext.sql(selectSQL).coalesce(1).orderBy("year","week_time")
+    println("**************"+selectDF.count())
+
+    // get prediction results
+    if(selectDF.count()>0)
+    {
+
+      selectDF.collect().foreach{
+        x=>
+          //insert into prediction table
+          val insertSQL = "update "+tablename2+" set real_count="+x.getDouble(2).toInt+" where time_week = \'"+x.getInt(1)+" \'and attack_type =\'"+col_name+"\'"
+
+          println(insertSQL)
+
+          conn.createStatement.execute(insertSQL)
+      }
+    }
+
+    conn.close()
+  }
 
 
   def main(args: Array[String]) {
@@ -164,6 +251,7 @@ object WeeklyPrediction {
       val colname = x.getString(0)
       val hc = new  HiveContext(sc)
       MakeWeeklyPrediction(hc,colname,url,username,password,tablename2)
+      UpdateWeeklyStat(hc,colname,url,username,password,tablename2)
   }
 
 }
